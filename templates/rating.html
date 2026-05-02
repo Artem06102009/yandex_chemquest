@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container main-index-container">
+    <h1 class="title is-1 mt-6 has-text-centered">Рейтинг</h1>
+
+    <div class="rating-settings">
+        <div class="tabs is-toggle">
+            <button class="tab-button {% if current_mode == 'time' %}active{% endif %}" data-mode="time">На время</button>
+            <button class="tab-button {% if current_mode == 'count' %}active{% endif %}" data-mode="count">На количество</button>
+        </div>
+        <div class="select">
+            <select id="themeSelect">
+                <option value="formulaToName" {% if current_theme == 'formulaToName' %}selected{% endif %}>Формула - название</option>
+                <option value="nameToFormula" {% if current_theme == 'nameToFormula' %}selected{% endif %}>Название - формула</option>
+                <option value="valency" {% if current_theme == 'valency' %}selected{% endif %}>Валентность</option>
+                <option value="oxidation" {% if current_theme == 'oxidation' %}selected{% endif %}>Степень окисления</option>
+                <option value="bond" {% if current_theme == 'bond' %}selected{% endif %}>Типы связи</option>
+                <option value="atomicmass" {% if current_theme == 'atomicmass' %}selected{% endif %}>Атомная масса</option>
+                <option value="OVR" {% if current_theme == 'OVR' %}selected{% endif %}>ОВР</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table class="table is-striped">
+            <thead>
+                <tr>
+                    <th>Место</th>
+                    <th>Игрок</th>
+                    <th>Результат</th>
+                    <th>Игр</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user, best_score in results %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>
+                        {{ user.email.split('@')[0] }}
+                        {% if session.user_id == user.id %}(Вы){% endif %}
+                    </td>
+                    <td><strong>{{ best_score }}</strong></td>
+                    <td>{{ user.games_played }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4">Нет результатов</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const modeBtns = document.querySelectorAll('.tab-button');
+        const themeSelect = document.getElementById('themeSelect');
+
+        function update() {
+            const mode = document.querySelector('.tab-button.active').dataset.mode;
+            const theme = themeSelect.value;
+            window.location.href = `/rating?mode=${mode}&theme=${theme}`;
+        }
+
+        modeBtns.forEach(btn => btn.addEventListener('click', () => {
+            modeBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            update();
+        }));
+
+        themeSelect.addEventListener('change', update);
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container is-flex is-align-items-center is-justify-content-center main-index-container">
+    <div class="game-game container is-max-desktop columns box pl-0">
+        <div class="game-options column is-4 px-5">
+            <h1 class="title is-2 has-text-centered">Режим</h1>
+            <div class="tabs is-toggle">
+                <button class="is-size-7 is-flex-grow-1 tab-button active" data-mode="time">На время</button>
+                <button class="is-size-7 is-flex-grow-1 tab-button" data-mode="count">На количество</button>
+            </div>
+            <div class="select is-small custom-select">
+                <select id="themeSelect">
+                    <option value="formulaToName">Формула - название</option>
+                    <option value="nameToFormula">Название - формула</option>
+                    <option value="valency">Валентность</option>
+                    <option value="oxidation">Степень окисления</option>
+                    <option value="bond">Типы химической связи</option>
+                    <option value="atomicmass">Атомная масса</option>
+                    <option value="OVR">Окислители и восстановители</option>
+                </select>
+            </div>
+            <div class="game-option-btn">
+                <button id="startButton" class="button is-primary is-medium is-rounded">Старт</button>
+            </div>
+        </div>
+        <div class="game-block column">
+            <div id="welcomeScreen" class="welcome-message">
+                <h2 class="title is-4">Выберите настройки и нажмите "Старт"</h2>
+                <p></p>
+            </div>
+
+            <div id="gameScreen" class="hidden">
+                <div class="timer hidden" id="timerDiv">
+                    <div id="time">01:00</div>
+                </div>
+                <div class="progress-info">
+                    Вопрос <span id="currentQuestionNum">1</span> из <span id="totalQuestions">10</span>
+                </div>
+                <p class="z" id="questionText"></p>
+                <div class="radios" id="optionsContainer">
+                </div>
+                <div class="btn-2">
+                    <button id="answerButton" class="button is-primary is-medium is-rounded" disabled>Ответить</button>
+                </div>
+            </div>
+            <div id="resultsScreen" class="hidden" style="text-align: center; padding: 5rem;">
+                <h2 class="title is-3">Игра завершена!</h2>
+                <p class="subtitle is-4" id="resultText"></p>
+                <button id="restartButton" class="button is-primary is-medium is-rounded">Играть снова</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

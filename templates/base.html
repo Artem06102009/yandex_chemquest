@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.9.0/css/all.min.css">
+  <link type="text/css" href="{{ url_for('static', filename='css/styles.css')}}" rel="stylesheet" />
+  <title>ChemQuest</title>
+</head>
+
+<body>
+  <nav class="navbar" role="navigation" aria-label="main navigation">
+    <div class="navbar-brand">
+      <a class="navbar-item" href="/">
+        <img src="{{ url_for('static', filename='images/logo2.png') }}" />
+      </a>
+      <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarBasicExample">
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+      </a>
+    </div>
+
+    <div id="navbarBasicExample" class="navbar-menu">
+      <div class="navbar-start">
+        <a class="navbar-item" href="/">Главная</a>
+        <a class="navbar-item" href="/game">Играть</a>
+        <a class="navbar-item" href="/rating">Рейтинг</a>
+        <a class="navbar-item" href="/table">Таблица Менделеева</a>
+      </div>
+
+      <div class="navbar-end">
+        <div class="navbar-item">
+          {% if session.user_id %}
+            <div class="user-profile" id="userProfile">
+              <div class="profile-icon">
+                {{ session.user_email[0].upper() }}
+              </div>
+              <span class="username">{{ session.user_email.split('@')[0] }}</span>
+              <a href="/logout" class="button is-light is-small ml-3">Выйти</a>
+            </div>
+          {% else %}
+            <div class="buttons">
+              <a class="button is-primary" href="/signup"><strong>Регистрация</strong></a>
+              <a class="button is-light" href="/signin">Войти</a>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="container mt-3">
+        {% for category, message in messages %}
+          <div class="notification is-{{ category }} is-light">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  {% block content %}
+  {% endblock %}
+
+
+  <script src="static/scripts/script.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const navbarBurger = document.querySelector('.navbar-burger');
+      const navbarMenu = document.querySelector('.navbar-menu');
+
+      if (navbarBurger && navbarMenu) {
+        navbarBurger.addEventListener('click', () => {
+          navbarBurger.classList.toggle('is-active');
+          navbarMenu.classList.toggle('is-active');
+        });
+      }
+    });
+
+  </script>
+
+</body>
+
+</html>
