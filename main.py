@@ -154,6 +154,16 @@ def rating():
     mode = request.args.get('mode', 'time')
     theme = request.args.get('theme', 'formulaToName')
 
+    from sqlalchemy import func
+
+    subquery = db.session.query(
+        GameResult.user_id,
+        func.max(GameResult.score).label('best_score')
+    ).filter(
+        GameResult.mode == mode,
+        GameResult.theme == theme
+    ).group_by(GameResult.user_id).subquery()
+
     results = db.session.query(
         User,
         subquery.c.best_score
