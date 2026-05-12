@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="ru">
 
@@ -7,14 +9,70 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.9.0/css/all.min.css">
   <link type="text/css" href="{{ url_for('static', filename='css/styles.css')}}" rel="stylesheet" />
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
   <title>ChemQuest</title>
+  <style>
+    .notification-toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      min-width: 300px;
+      max-width: 500px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      animation: slideDown 0.3s ease-out;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+    }
+
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid #00d1b2;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
 </head>
 
 <body>
   <nav class="navbar" role="navigation" aria-label="main navigation">
     <div class="navbar-brand">
       <a class="navbar-item" href="/">
-        <img src="{{ url_for('static', filename='images/logo2.png') }}" />
+        <img src="{{ url_for('static', filename='images/logo2.png') }}" alt="ChemQuest Logo" />
       </a>
       <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarBasicExample">
         <span aria-hidden="true"></span>
@@ -30,6 +88,7 @@
         <a class="navbar-item" href="/game">Играть</a>
         <a class="navbar-item" href="/rating">Рейтинг</a>
         <a class="navbar-item" href="/table">Таблица Менделеева</a>
+        <a class="navbar-item" href="/multiplayer">Дуэль</a>
       </div>
 
       <div class="navbar-end">
@@ -58,6 +117,7 @@
       <div class="container mt-3">
         {% for category, message in messages %}
           <div class="notification is-{{ category }} is-light">
+            <button class="delete" onclick="this.parentElement.remove()"></button>
             {{ message }}
           </div>
         {% endfor %}
@@ -65,27 +125,105 @@
     {% endif %}
   {% endwith %}
 
-  {% block content %}
-  {% endblock %}
-
-
-  <script src="static/scripts/script.js"></script>
+  {% block content %}{% endblock %}
 
   <script>
+    window.showNotification = function(message, type = 'info') {
+      const notification = document.createElement('div');
+      notification.className = `notification is-${type} is-light notification-toast`;
+      let icon = '';
+      if (type === 'success') icon = '<i class="fas fa-check-circle"></i> ';
+      else if (type === 'danger') icon = '<i class="fas fa-exclamation-triangle"></i> ';
+      else if (type === 'warning') icon = '<i class="fas fa-exclamation-circle"></i> ';
+      else if (type === 'info') icon = '<i class="fas fa-info-circle"></i> ';
+      notification.innerHTML = `<button class="delete" onclick="this.parentElement.remove()"></button>${icon}${message}`;
+      document.body.appendChild(notification);
+      setTimeout(() => {
+        if (notification.parentElement) {
+          notification.style.opacity = '0';
+          setTimeout(() => notification.remove(), 300);
+        }
+      }, 5000);
+    };
+
+    window.showLoading = function(show = true) {
+      let overlay = document.querySelector('.loading-overlay');
+      if (show) {
+        if (!overlay) {
+          overlay = document.createElement('div');
+          overlay.className = 'loading-overlay';
+          overlay.innerHTML = '<div class="loading-spinner"></div>';
+          document.body.appendChild(overlay);
+        }
+        overlay.classList.remove('hidden');
+      } else if (overlay) {
+        overlay.classList.add('hidden');
+      }
+    };
+
+    window.formatTime = function(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    window.checkAuth = async function() {
+      try {
+        const response = await fetch('/check_auth');
+        const data = await response.json();
+        return data.authenticated;
+      } catch (error) {
+        console.error('Ошибка проверки авторизации:', error);
+        return false;
+      }
+    };
+
+    window.getCurrentUser = async function() {
+      try {
+        const response = await fetch('/check_auth');
+        return await response.json();
+      } catch (error) {
+        console.error('Ошибка получения пользователя:', error);
+        return { authenticated: false };
+      }
+    };
+
+    window.copyToClipboard = async function(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        window.showNotification('Скопировано в буфер обмена!', 'success');
+        return true;
+      } catch (err) {
+        console.error('Ошибка копирования:', err);
+        window.showNotification('Не удалось скопировать', 'danger');
+        return false;
+      }
+    };
+
     document.addEventListener('DOMContentLoaded', () => {
       const navbarBurger = document.querySelector('.navbar-burger');
       const navbarMenu = document.querySelector('.navbar-menu');
-
       if (navbarBurger && navbarMenu) {
         navbarBurger.addEventListener('click', () => {
           navbarBurger.classList.toggle('is-active');
           navbarMenu.classList.toggle('is-active');
         });
       }
+      document.querySelectorAll('.notification .delete').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.target.closest('.notification').remove();
+        });
+      });
     });
 
+    window.addEventListener('error', (e) => {
+      console.error('Global error:', e);
+    });
   </script>
 
+  {% if request.endpoint == 'game' %}
+    <script src="{{ url_for('static', filename='scripts/script.js') }}"></script>
+  {% endif %}
 </body>
 
 </html>

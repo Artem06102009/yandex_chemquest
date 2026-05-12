@@ -1,0 +1,558 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container main-index-container">
+    <div class="columns is-centered">
+        <div class="column is-8">
+            <div class="card">
+                <div class="card-header">
+                    <p class="card-header-title is-size-4">
+                        🎮 Мультиплеер — Дуэль
+                    </p>
+                </div>
+                
+                <div class="card-content">
+                    <div id="lobbyScreen">
+                        <div class="field">
+                            <label class="label">Выберите тему</label>
+                            <div class="select">
+                                <select id="mpThemeSelect">
+                                    <option value="formulaToName">Формула → название</option>
+                                    <option value="nameToFormula">Название → формула</option>
+                                    <option value="valency">Валентность</option>
+                                    <option value="oxidation">Степень окисления</option>
+                                    <option value="bond">Типы химической связи</option>
+                                    <option value="atomicmass">Атомная масса</option>
+                                    <option value="OVR">Окислители и восстановители</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="field is-grouped">
+                            <div class="control">
+                                <button id="createRoomBtn" class="button is-primary">➕ Создать комнату</button>
+                            </div>
+                            <div class="control">
+                                <button id="joinRoomBtn" class="button is-info">🔗 Подключиться</button>
+                            </div>
+                        </div>
+                        
+                        <div id="joinSection" class="hidden mt-3">
+                            <div class="field has-addons">
+                                <div class="control is-expanded">
+                                    <input id="roomIdInput" class="input" type="text" placeholder="ID комнаты">
+                                </div>
+                                <div class="control">
+                                    <button id="confirmJoinBtn" class="button is-info">Подключиться</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="roomScreen" class="hidden">
+                        <div class="level">
+                            <div class="level-left">
+                                <div class="level-item">
+                                    <h3 class="title is-5">Комната: <span id="roomIdDisplay"></span></h3>
+                                </div>
+                            </div>
+                            <div class="level-right">
+                                <div class="level-item">
+                                    <button id="leaveRoomBtn" class="button is-small is-danger">Выйти</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="columns" id="playersList"></div>
+                        
+                        <div id="readySection" class="has-text-centered mt-4">
+                            <button id="readyBtn" class="button is-success is-medium">✅ Я готов</button>
+                            <p class="help mt-2">Нужно минимум 2 игрока для старта</p>
+                        </div>
+                        
+                        <div id="gameSection" class="hidden">
+                            <div class="progress-info has-text-centered">
+                                Вопрос <span id="mpCurrentQuestion">1</span> из <span id="mpTotalQuestions">10</span>
+                            </div>
+                            <p class="z" id="mpQuestionText"></p>
+                            <div class="radios" id="mpOptionsContainer"></div>
+                            <div class="has-text-centered mt-4">
+                                <button id="mpAnswerBtn" class="button is-primary is-medium" disabled>Ответить</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="resultsScreen" class="hidden">
+                        <h3 class="title is-4 has-text-centered">🏆 Результаты дуэли</h3>
+                        <div id="mpResultsList"></div>
+                        <div class="has-text-centered mt-4">
+                            <button id="backToLobbyBtn" class="button is-primary">В лобби</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .player-card {
+        text-align: center;
+        padding: 15px;
+        border-radius: 10px;
+        background: #f5f5f5;
+        transition: all 0.3s ease;
+    }
+    .player-card.ready {
+        background: #00d1b2;
+        color: white;
+    }
+    .player-card .player-name {
+        font-weight: bold;
+        font-size: 18px;
+    }
+    .player-card .player-score {
+        font-size: 24px;
+        margin-top: 10px;
+        font-weight: bold;
+    }
+    .player-card .ready-badge {
+        margin-top: 10px;
+        font-size: 12px;
+    }
+    .radio.selected {
+        background-color: #00d1b2;
+        border-color: #00d1b2;
+        color: white;
+    }
+    .radio.correct {
+        background-color: #48c774 !important;
+        color: white !important;
+    }
+    .radio.incorrect {
+        background-color: #f14668 !important;
+        color: white !important;
+    }
+    [data-theme="dark"] .player-card {
+        background: #2a2a2a;
+        color: #e0e0e0;
+    }
+    .hidden {
+        display: none;
+    }
+</style>
+
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<script>
+    const socket = io();
+    let currentRoomId = null;
+    let currentTheme = null;
+    let isReady = false;
+    let selectedOption = null;
+    let isAnswered = false;
+    let questionStartTime = 0;
+    let currentUserId = null;
+    let currentUserEmail = null;
+    
+    // DOM элементы
+    const lobbyScreen = document.getElementById('lobbyScreen');
+    const roomScreen = document.getElementById('roomScreen');
+    const resultsScreen = document.getElementById('resultsScreen');
+    const createRoomBtn = document.getElementById('createRoomBtn');
+    const joinRoomBtn = document.getElementById('joinRoomBtn');
+    const joinSection = document.getElementById('joinSection');
+    const confirmJoinBtn = document.getElementById('confirmJoinBtn');
+    const roomIdInput = document.getElementById('roomIdInput');
+    const roomIdDisplay = document.getElementById('roomIdDisplay');
+    const playersList = document.getElementById('playersList');
+    const readyBtn = document.getElementById('readyBtn');
+    const leaveRoomBtn = document.getElementById('leaveRoomBtn');
+    const gameSection = document.getElementById('gameSection');
+    const readySection = document.getElementById('readySection');
+    const mpThemeSelect = document.getElementById('mpThemeSelect');
+    const backToLobbyBtn = document.getElementById('backToLobbyBtn');
+    
+    // Игровые элементы
+    const mpQuestionText = document.getElementById('mpQuestionText');
+    const mpOptionsContainer = document.getElementById('mpOptionsContainer');
+    const mpAnswerBtn = document.getElementById('mpAnswerBtn');
+    const mpCurrentQuestion = document.getElementById('mpCurrentQuestion');
+    const mpTotalQuestions = document.getElementById('mpTotalQuestions');
+    const mpResultsList = document.getElementById('mpResultsList');
+    
+    // Получаем информацию о текущем пользователе
+    fetch('/check_auth')
+        .then(res => res.json())
+        .then(data => {
+            if (!data.authenticated) {
+                window.location.href = '/signin';
+            }
+            currentUserId = data.user_id;
+            currentUserEmail = data.email;
+        });
+    
+    // Создание комнаты
+    createRoomBtn.addEventListener('click', () => {
+        const theme = mpThemeSelect.value;
+        socket.emit('create_room', {
+            room_id: null,
+            theme: theme
+        });
+    });
+    
+    // Показать поле ввода ID комнаты
+    joinRoomBtn.addEventListener('click', () => {
+        joinSection.classList.toggle('hidden');
+    });
+    
+    // Подключение к комнате
+    confirmJoinBtn.addEventListener('click', () => {
+        const roomId = roomIdInput.value.trim();
+        if (roomId) {
+            socket.emit('join_room', { room_id: roomId });
+            joinSection.classList.add('hidden');
+            roomIdInput.value = '';
+        }
+    });
+    
+    // Выход из комнаты
+    leaveRoomBtn.addEventListener('click', () => {
+        if (currentRoomId) {
+            socket.emit('leave_room', { room_id: currentRoomId });
+        }
+        resetToLobby();
+    });
+    
+    // Готовность игрока
+    readyBtn.addEventListener('click', () => {
+        if (!isReady && currentRoomId) {
+            isReady = true;
+            socket.emit('player_ready', { room_id: currentRoomId });
+            readyBtn.textContent = '✅ Готов!';
+            readyBtn.disabled = true;
+            readyBtn.classList.add('is-success');
+        }
+    });
+    
+    // Ответ на вопрос
+    mpAnswerBtn.addEventListener('click', () => {
+        if (isAnswered || !selectedOption) return;
+        
+        isAnswered = true;
+        const timeTaken = Date.now() - questionStartTime;
+        
+        socket.emit('submit_answer', {
+            room_id: currentRoomId,
+            answer: selectedOption,
+            time_taken: timeTaken
+        });
+        
+        mpAnswerBtn.disabled = true;
+        mpAnswerBtn.textContent = 'Ответ отправлен...';
+    });
+    
+    // SocketIO события
+    socket.on('room_created', (data) => {
+        currentRoomId = data.room_id;
+        currentTheme = data.theme;
+        roomIdDisplay.textContent = data.room_id;
+        lobbyScreen.classList.add('hidden');
+        roomScreen.classList.remove('hidden');
+        updatePlayersList(data.players);
+    });
+    
+    socket.on('joined_room', (data) => {
+        currentRoomId = data.room_id;
+        roomIdDisplay.textContent = data.room_id;
+        lobbyScreen.classList.add('hidden');
+        roomScreen.classList.remove('hidden');
+        updatePlayersList(data.players);
+    });
+    
+    socket.on('player_joined', (data) => {
+        updatePlayersList(data.players);
+        showNotification('Новый игрок присоединился!', 'info');
+    });
+    
+    socket.on('player_status', (data) => {
+        updatePlayersList(data.players);
+        if (data.all_ready && data.players_count >= 2) {
+            const helpText = readySection.querySelector('.help');
+            if (helpText) helpText.textContent = '⏳ Игра начинается...';
+            readyBtn.disabled = true;
+        }
+    });
+    
+    socket.on('game_start', (data) => {
+        gameSection.classList.remove('hidden');
+        readySection.classList.add('hidden');
+        currentTheme = data.theme;
+        mpTotalQuestions.textContent = data.total_questions;
+        updatePlayersList(data.players);
+        showNotification('Игра началась! Отвечайте быстрее, чтобы получить больше очков!', 'success');
+    });
+    
+    socket.on('new_question', (data) => {
+        mpCurrentQuestion.textContent = data.question_num;
+        mpTotalQuestions.textContent = data.total;
+        mpQuestionText.textContent = data.question;
+        
+        mpOptionsContainer.innerHTML = '';
+        selectedOption = null;
+        isAnswered = false;
+        mpAnswerBtn.disabled = true;
+        mpAnswerBtn.textContent = 'Ответить';
+        questionStartTime = Date.now();
+        
+        // Удаляем старые результаты
+        const oldResult = document.querySelector('.answer-result');
+        if (oldResult) oldResult.remove();
+        const oldCorrect = document.querySelector('.correct-answer-display');
+        if (oldCorrect) oldCorrect.remove();
+        
+        data.options.forEach((option, index) => {
+            const radioDiv = document.createElement('label');
+            radioDiv.className = 'radio';
+            
+            const input = document.createElement('input');
+            input.type = 'radio';
+            input.name = 'mp_answer';
+            input.value = option;
+            input.id = `option_${index}`;
+            
+            const span = document.createElement('span');
+            span.textContent = option;
+            
+            input.addEventListener('change', (e) => {
+                selectedOption = e.target.value;
+                mpAnswerBtn.disabled = false;
+                document.querySelectorAll('#mpOptionsContainer .radio').forEach(el => {
+                    el.classList.remove('selected');
+                });
+                radioDiv.classList.add('selected');
+            });
+            
+            radioDiv.appendChild(input);
+            radioDiv.appendChild(span);
+            mpOptionsContainer.appendChild(radioDiv);
+        });
+    });
+    
+    socket.on('answer_result', (data) => {
+        mpAnswerBtn.disabled = true;
+        mpAnswerBtn.textContent = 'Ответить';
+        
+        const resultDiv = document.createElement('div');
+        resultDiv.className = `notification is-${data.correct ? 'success' : 'danger'} mt-3 answer-result`;
+        if (data.correct) {
+            resultDiv.innerHTML = `<i class="fas fa-check-circle"></i> ✅ Правильно! +${data.points} очков`;
+        } else {
+            resultDiv.innerHTML = `<i class="fas fa-times-circle"></i> ❌ Неправильно! Правильный ответ: ${data.correct_answer}`;
+        }
+        
+        const oldResult = document.querySelector('.answer-result');
+        if (oldResult) oldResult.remove();
+        mpOptionsContainer.parentNode.appendChild(resultDiv);
+        
+        // Блокируем радио-кнопки и показываем правильный/неправильный ответ
+        document.querySelectorAll('#mpOptionsContainer .radio').forEach(radio => {
+            const input = radio.querySelector('input');
+            if (input) input.disabled = true;
+            
+            const optionText = radio.querySelector('span')?.textContent || radio.textContent.trim();
+            if (optionText === data.correct_answer) {
+                radio.classList.add('correct');
+            } else if (radio.classList.contains('selected')) {
+                radio.classList.add('incorrect');
+            }
+        });
+        
+        // Обновляем счет текущего игрока
+        if (data.new_score) {
+            updateCurrentPlayerScore(data.new_score);
+        }
+    });
+    
+    socket.on('scores_update', (data) => {
+        for (const [playerId, score] of Object.entries(data.players)) {
+            updatePlayerScoreInCard(playerId, score);
+        }
+    });
+    
+    socket.on('show_correct_answer', (data) => {
+        const resultDiv = document.createElement('div');
+        resultDiv.className = 'notification is-info mt-3 correct-answer-display';
+        resultDiv.innerHTML = `<i class="fas fa-lightbulb"></i> 📖 Правильный ответ: ${data.correct_answer}`;
+        
+        const oldResult = document.querySelector('.correct-answer-display');
+        if (oldResult) oldResult.remove();
+        mpOptionsContainer.parentNode.appendChild(resultDiv);
+    });
+    
+    socket.on('game_end', (data) => {
+        gameSection.classList.add('hidden');
+        roomScreen.classList.add('hidden');
+        resultsScreen.classList.remove('hidden');
+        
+        mpResultsList.innerHTML = '';
+        
+        // Показываем финальную таблицу результатов
+        const resultsArray = Object.entries(data.players).sort((a, b) => b[1].score - a[1].score);
+        
+        resultsArray.forEach(([playerId, playerData], index) => {
+            const isCurrentUser = (playerId == currentUserId);
+            let medal = '';
+            let medalClass = '';
+            if (index === 0) {
+                medal = '🥇';
+                medalClass = 'is-warning';
+            } else if (index === 1) {
+                medal = '🥈';
+                medalClass = 'is-light';
+            } else if (index === 2) {
+                medal = '🥉';
+                medalClass = 'is-light';
+            } else {
+                medal = '📌';
+                medalClass = 'is-light';
+            }
+            
+            const row = document.createElement('div');
+            row.className = 'level mb-3 p-3';
+            row.style.borderBottom = '1px solid #dbdbdb';
+            row.innerHTML = `
+                <div class="level-left">
+                    <div class="level-item">
+                        <span class="tag is-medium ${medalClass} mr-3" style="font-size: 1.2rem;">
+                            ${medal}
+                        </span>
+                        <strong style="font-size: 1.1rem;">${playerData.email.split('@')[0]} ${isCurrentUser ? '<span class="tag is-primary ml-2">Вы</span>' : ''}</strong>
+                    </div>
+                </div>
+                <div class="level-right">
+                    <div class="level-item">
+                        <span class="tag is-primary is-medium" style="font-size: 1.2rem; padding: 0.5rem 1rem;">${playerData.score} очков</span>
+                    </div>
+                </div>
+            `;
+            mpResultsList.appendChild(row);
+        });
+        
+        showNotification('Игра завершена! Посмотрите результаты.', 'info');
+    });
+    
+    socket.on('player_left', (data) => {
+        updatePlayersList(data.players);
+        showNotification('Игрок покинул комнату', 'warning');
+    });
+    
+    socket.on('player_list_update', (data) => {
+        updatePlayersList(data.players);
+    });
+    
+    socket.on('error', (data) => {
+        showNotification(data.message, 'danger');
+    });
+    
+    function updatePlayersList(players) {
+        playersList.innerHTML = '';
+        const playersArray = Object.entries(players);
+        
+        if (playersArray.length === 0) {
+            playersList.innerHTML = '<div class="column has-text-centered">Нет игроков</div>';
+            return;
+        }
+        
+        playersArray.forEach(([id, player]) => {
+            const isCurrentUser = (id == currentUserId);
+            const col = document.createElement('div');
+            col.className = 'column is-4';
+            col.innerHTML = `
+                <div class="player-card ${player.ready ? 'ready' : ''}" data-player-id="${id}">
+                    <div class="player-name">
+                        ${player.email.split('@')[0]} 
+                        ${isCurrentUser ? '<span class="tag is-primary is-small ml-1">Вы</span>' : ''}
+                    </div>
+                    <div class="player-score" data-player-score="${id}">${player.score || 0}</div>
+                    <div class="ready-badge">
+                        ${player.ready ? '✅ Готов' : '⏳ Ожидает'}
+                    </div>
+                </div>
+            `;
+            playersList.appendChild(col);
+        });
+    }
+    
+    function updateCurrentPlayerScore(newScore) {
+        const scoreElement = document.querySelector(`.player-score[data-player-score="${currentUserId}"]`);
+        if (scoreElement) {
+            scoreElement.textContent = newScore;
+        }
+    }
+    
+    function updatePlayerScoreInCard(playerId, newScore) {
+        const scoreElement = document.querySelector(`.player-score[data-player-score="${playerId}"]`);
+        if (scoreElement) {
+            scoreElement.textContent = newScore;
+        }
+    }
+    
+    function showNotification(message, type = 'info') {
+        // Создаем временное уведомление
+        const notification = document.createElement('div');
+        notification.className = `notification is-${type} is-light has-text-centered`;
+        notification.style.position = 'fixed';
+        notification.style.top = '20px';
+        notification.style.left = '50%';
+        notification.style.transform = 'translateX(-50%)';
+        notification.style.zIndex = '1000';
+        notification.style.minWidth = '300px';
+        notification.style.maxWidth = '500px';
+        notification.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+        notification.innerHTML = message;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
+    }
+    
+    function resetToLobby() {
+        currentRoomId = null;
+        isReady = false;
+        selectedOption = null;
+        isAnswered = false;
+        
+        lobbyScreen.classList.remove('hidden');
+        roomScreen.classList.add('hidden');
+        resultsScreen.classList.add('hidden');
+        gameSection.classList.add('hidden');
+        readySection.classList.remove('hidden');
+        joinSection.classList.add('hidden');
+        roomIdInput.value = '';
+        readyBtn.textContent = '✅ Я готов';
+        readyBtn.disabled = false;
+        readyBtn.classList.remove('is-success');
+        mpOptionsContainer.innerHTML = '';
+        mpQuestionText.textContent = '';
+        
+        const helpText = readySection.querySelector('.help');
+        if (helpText) helpText.textContent = 'Нужно минимум 2 игрока для старта';
+    }
+    
+    backToLobbyBtn.addEventListener('click', resetToLobby);
+    
+    // Обработка Enter в поле ввода ID комнаты
+    roomIdInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            confirmJoinBtn.click();
+        }
+    });
+    
+    // Обработка переключения темы при создании комнаты (обновляем подсказку)
+    mpThemeSelect.addEventListener('change', () => {
+        // Просто обновляем, ничего дополнительного не нужно
+    });
+</script>
+{% endblock %}
