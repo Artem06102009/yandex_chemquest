@@ -59,3 +59,4 @@
 Стили: Bulma + свои стили
 
 
+ССЫЛКА НА ПРЕЗЕНТАЦИЮ: https://docs.google.com/presentation/d/1KjoqfJolXOO5HZ1csap8lAINtvOMwswvJsh6ybyv7So/edit?usp=sharing
