@@ -333,14 +333,11 @@ background-color: #00d1b2;
 
 .custom-tooltip .tooltip-text {
   visibility: hidden;
-  /* Настраиваем стили согласно своим предпочтениям */
- color: red;
-
-
+ color: red
 }
 
 .custom-tooltip:hover .tooltip-text {
-  visibility: visible; /* Вот такое чудо! */
+  visibility: visible;
 }
 
 body {
@@ -372,4 +369,13 @@ body {
     }
 }
 
+
+.table th:not([align]) {
+    text-align: center !important;
+}
+
+.star {
+    text-align: center;
+    padding: 100px;
+}
 

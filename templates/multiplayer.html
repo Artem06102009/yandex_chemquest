@@ -6,7 +6,7 @@
             <div class="card">
                 <div class="card-header">
                     <p class="card-header-title is-size-4">
-                        🎮 Мультиплеер — Дуэль
+                        Мультиплеер — Дуэль
                     </p>
                 </div>
                 
@@ -29,10 +29,10 @@
                         
                         <div class="field is-grouped">
                             <div class="control">
-                                <button id="createRoomBtn" class="button is-primary">➕ Создать комнату</button>
+                                <button id="createRoomBtn" class="button is-primary">Создать комнату</button>
                             </div>
                             <div class="control">
-                                <button id="joinRoomBtn" class="button is-info">🔗 Подключиться</button>
+                                <button id="joinRoomBtn" class="button is-info">Подключиться</button>
                             </div>
                         </div>
                         
@@ -65,7 +65,7 @@
                         <div class="columns" id="playersList"></div>
                         
                         <div id="readySection" class="has-text-centered mt-4">
-                            <button id="readyBtn" class="button is-success is-medium">✅ Я готов</button>
+                            <button id="readyBtn" class="button is-success is-medium">Я готов</button>
                             <p class="help mt-2">Нужно минимум 2 игрока для старта</p>
                         </div>
                         
@@ -82,7 +82,7 @@
                     </div>
                     
                     <div id="resultsScreen" class="hidden">
-                        <h3 class="title is-4 has-text-centered">🏆 Результаты дуэли</h3>
+                        <h3 class="title is-4 has-text-centered">Результаты дуэли</h3>
                         <div id="mpResultsList"></div>
                         <div class="has-text-centered mt-4">
                             <button id="backToLobbyBtn" class="button is-primary">В лобби</button>
@@ -104,7 +104,6 @@
     }
     .player-card.ready {
         background: #00d1b2;
-        color: white;
     }
     .player-card .player-name {
         font-weight: bold;
@@ -132,12 +131,16 @@
         background-color: #f14668 !important;
         color: white !important;
     }
-    [data-theme="dark"] .player-card {
-        background: #2a2a2a;
-        color: #e0e0e0;
-    }
+
     .hidden {
         display: none;
+    }
+    .card {
+        background-color: white !important;
+    }
+
+    .card-header-title {
+        color: #2c3e50 !important;
     }
 </style>
 
@@ -152,8 +155,7 @@
     let questionStartTime = 0;
     let currentUserId = null;
     let currentUserEmail = null;
-    
-    // DOM элементы
+
     const lobbyScreen = document.getElementById('lobbyScreen');
     const roomScreen = document.getElementById('roomScreen');
     const resultsScreen = document.getElementById('resultsScreen');
@@ -170,16 +172,14 @@
     const readySection = document.getElementById('readySection');
     const mpThemeSelect = document.getElementById('mpThemeSelect');
     const backToLobbyBtn = document.getElementById('backToLobbyBtn');
-    
-    // Игровые элементы
+
     const mpQuestionText = document.getElementById('mpQuestionText');
     const mpOptionsContainer = document.getElementById('mpOptionsContainer');
     const mpAnswerBtn = document.getElementById('mpAnswerBtn');
     const mpCurrentQuestion = document.getElementById('mpCurrentQuestion');
     const mpTotalQuestions = document.getElementById('mpTotalQuestions');
     const mpResultsList = document.getElementById('mpResultsList');
-    
-    // Получаем информацию о текущем пользователе
+
     fetch('/check_auth')
         .then(res => res.json())
         .then(data => {
@@ -189,8 +189,7 @@
             currentUserId = data.user_id;
             currentUserEmail = data.email;
         });
-    
-    // Создание комнаты
+
     createRoomBtn.addEventListener('click', () => {
         const theme = mpThemeSelect.value;
         socket.emit('create_room', {
@@ -198,13 +197,11 @@
             theme: theme
         });
     });
-    
-    // Показать поле ввода ID комнаты
+
     joinRoomBtn.addEventListener('click', () => {
         joinSection.classList.toggle('hidden');
     });
-    
-    // Подключение к комнате
+
     confirmJoinBtn.addEventListener('click', () => {
         const roomId = roomIdInput.value.trim();
         if (roomId) {
@@ -213,27 +210,24 @@
             roomIdInput.value = '';
         }
     });
-    
-    // Выход из комнаты
+
     leaveRoomBtn.addEventListener('click', () => {
         if (currentRoomId) {
             socket.emit('leave_room', { room_id: currentRoomId });
         }
         resetToLobby();
     });
-    
-    // Готовность игрока
+
     readyBtn.addEventListener('click', () => {
         if (!isReady && currentRoomId) {
             isReady = true;
             socket.emit('player_ready', { room_id: currentRoomId });
-            readyBtn.textContent = '✅ Готов!';
+            readyBtn.textContent = 'Готов!';
             readyBtn.disabled = true;
             readyBtn.classList.add('is-success');
         }
     });
-    
-    // Ответ на вопрос
+
     mpAnswerBtn.addEventListener('click', () => {
         if (isAnswered || !selectedOption) return;
         
@@ -249,8 +243,7 @@
         mpAnswerBtn.disabled = true;
         mpAnswerBtn.textContent = 'Ответ отправлен...';
     });
-    
-    // SocketIO события
+
     socket.on('room_created', (data) => {
         currentRoomId = data.room_id;
         currentTheme = data.theme;
@@ -277,7 +270,7 @@
         updatePlayersList(data.players);
         if (data.all_ready && data.players_count >= 2) {
             const helpText = readySection.querySelector('.help');
-            if (helpText) helpText.textContent = '⏳ Игра начинается...';
+            if (helpText) helpText.textContent = 'Игра начинается...';
             readyBtn.disabled = true;
         }
     });
@@ -302,8 +295,7 @@
         mpAnswerBtn.disabled = true;
         mpAnswerBtn.textContent = 'Ответить';
         questionStartTime = Date.now();
-        
-        // Удаляем старые результаты
+
         const oldResult = document.querySelector('.answer-result');
         if (oldResult) oldResult.remove();
         const oldCorrect = document.querySelector('.correct-answer-display');
@@ -338,39 +330,39 @@
     });
     
     socket.on('answer_result', (data) => {
-        mpAnswerBtn.disabled = true;
-        mpAnswerBtn.textContent = 'Ответить';
-        
-        const resultDiv = document.createElement('div');
-        resultDiv.className = `notification is-${data.correct ? 'success' : 'danger'} mt-3 answer-result`;
-        if (data.correct) {
-            resultDiv.innerHTML = `<i class="fas fa-check-circle"></i> ✅ Правильно! +${data.points} очков`;
-        } else {
-            resultDiv.innerHTML = `<i class="fas fa-times-circle"></i> ❌ Неправильно! Правильный ответ: ${data.correct_answer}`;
-        }
-        
-        const oldResult = document.querySelector('.answer-result');
-        if (oldResult) oldResult.remove();
-        mpOptionsContainer.parentNode.appendChild(resultDiv);
-        
-        // Блокируем радио-кнопки и показываем правильный/неправильный ответ
-        document.querySelectorAll('#mpOptionsContainer .radio').forEach(radio => {
-            const input = radio.querySelector('input');
-            if (input) input.disabled = true;
-            
-            const optionText = radio.querySelector('span')?.textContent || radio.textContent.trim();
-            if (optionText === data.correct_answer) {
-                radio.classList.add('correct');
-            } else if (radio.classList.contains('selected')) {
-                radio.classList.add('incorrect');
-            }
-        });
-        
-        // Обновляем счет текущего игрока
-        if (data.new_score) {
-            updateCurrentPlayerScore(data.new_score);
+    mpAnswerBtn.disabled = true;
+    mpAnswerBtn.textContent = 'Ответить';
+
+    const resultDiv = document.createElement('div');
+    resultDiv.className = `notification is-${data.correct ? 'success' : 'danger'} mt-3 answer-result`;
+    if (data.correct) {
+        resultDiv.innerHTML = `<i class="fas fa-check-circle"></i>Правильно! +${data.points} очков`;
+    } else {
+        resultDiv.innerHTML = `<i class="fas fa-times-circle"></i>Неправильно! Правильный ответ: ${data.correct_answer}`;
+    }
+
+    const oldResult = document.querySelector('.answer-result');
+    if (oldResult) oldResult.remove();
+    mpOptionsContainer.parentNode.appendChild(resultDiv);
+
+
+
+    document.querySelectorAll('#mpOptionsContainer .radio').forEach(radio => {
+        const input = radio.querySelector('input');
+        if (input) input.disabled = true;
+
+        const optionText = radio.querySelector('span')?.textContent || radio.textContent.trim();
+        if (optionText === data.correct_answer) {
+            radio.classList.add('correct');
+        } else if (radio.classList.contains('selected')) {
+            radio.classList.add('incorrect');
         }
     });
+
+    if (data.new_score) {
+        updateCurrentPlayerScore(data.new_score);
+    }
+});
     
     socket.on('scores_update', (data) => {
         for (const [playerId, score] of Object.entries(data.players)) {
@@ -381,7 +373,7 @@
     socket.on('show_correct_answer', (data) => {
         const resultDiv = document.createElement('div');
         resultDiv.className = 'notification is-info mt-3 correct-answer-display';
-        resultDiv.innerHTML = `<i class="fas fa-lightbulb"></i> 📖 Правильный ответ: ${data.correct_answer}`;
+        resultDiv.innerHTML = `<i class="fas fa-lightbulb"></i> Правильный ответ: ${data.correct_answer}`;
         
         const oldResult = document.querySelector('.correct-answer-display');
         if (oldResult) oldResult.remove();
@@ -394,8 +386,7 @@
         resultsScreen.classList.remove('hidden');
         
         mpResultsList.innerHTML = '';
-        
-        // Показываем финальную таблицу результатов
+
         const resultsArray = Object.entries(data.players).sort((a, b) => b[1].score - a[1].score);
         
         resultsArray.forEach(([playerId, playerData], index) => {
@@ -474,7 +465,7 @@
                     </div>
                     <div class="player-score" data-player-score="${id}">${player.score || 0}</div>
                     <div class="ready-badge">
-                        ${player.ready ? '✅ Готов' : '⏳ Ожидает'}
+                        ${player.ready ? 'Готов' : 'Ожидает'}
                     </div>
                 </div>
             `;
@@ -497,7 +488,6 @@
     }
     
     function showNotification(message, type = 'info') {
-        // Создаем временное уведомление
         const notification = document.createElement('div');
         notification.className = `notification is-${type} is-light has-text-centered`;
         notification.style.position = 'fixed';
@@ -531,7 +521,7 @@
         readySection.classList.remove('hidden');
         joinSection.classList.add('hidden');
         roomIdInput.value = '';
-        readyBtn.textContent = '✅ Я готов';
+        readyBtn.textContent = 'Я готов';
         readyBtn.disabled = false;
         readyBtn.classList.remove('is-success');
         mpOptionsContainer.innerHTML = '';
@@ -542,17 +532,13 @@
     }
     
     backToLobbyBtn.addEventListener('click', resetToLobby);
-    
-    // Обработка Enter в поле ввода ID комнаты
     roomIdInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
             confirmJoinBtn.click();
         }
     });
-    
-    // Обработка переключения темы при создании комнаты (обновляем подсказку)
+
     mpThemeSelect.addEventListener('change', () => {
-        // Просто обновляем, ничего дополнительного не нужно
     });
 </script>
 {% endblock %}

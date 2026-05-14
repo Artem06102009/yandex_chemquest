@@ -103,10 +103,10 @@
         .then(data => {
             buildTable(data.elements);
         })
-<!--        .catch(error => {-->
-<!--            console.error('Ошибка загрузки:', error);-->
-<!--            document.getElementById('table-body').innerHTML = '<tr><td colspan="20" class="has-text-centered">Ошибка загрузки данных</td></tr>';-->
-<!--        });-->
+        .catch(error => {
+            console.error('Ошибка загрузки:', error);
+            document.getElementById('table-body').innerHTML = '<tr><td colspan="20" class="has-text-centered">Ошибка загрузки данных</td></tr>';
+        });
 
     function buildTable(elements) {
         const elementMap = {};
