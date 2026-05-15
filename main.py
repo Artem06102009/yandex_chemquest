@@ -936,15 +936,15 @@ def handle_submit_answer(data):
         points = max(10, 100 - int(time_taken / 10))
         if points > 100: points = 100
         room['players'][user_id]['score'] += points
-    room['answers'][user_id] = {'answer': answer, 'correct': is_correct, 'points': points}
 
-    correct_answer = room['questions'][q_index]['answer'] if not is_correct else None
+    room['answers'][user_id] = {'answer': answer, 'correct': is_correct, 'points': points}
+    correct_answer_text = room['questions'][q_index]['answer']
 
     emit('answer_result', {
         'correct': is_correct,
         'points': points,
         'new_score': room['players'][user_id]['score'],
-        'correct_answer': correct_answer
+        'correct_answer': correct_answer_text
     }, to=request.sid)
 
     emit('scores_update', {
@@ -960,7 +960,6 @@ def handle_submit_answer(data):
             end_game(room_id)
         else:
             send_question(room_id)
-
 
 @socketio.on('get_players')
 def handle_get_players(data):

@@ -119,9 +119,9 @@
         font-size: 12px;
     }
     .radio.selected {
-        background-color: #00d1b2;
+        background-color: light-grey;
         border-color: #00d1b2;
-        color: white;
+        color: light-grey;
     }
     .radio.correct {
         background-color: #48c774 !important;
@@ -288,32 +288,26 @@
         mpCurrentQuestion.textContent = data.question_num;
         mpTotalQuestions.textContent = data.total;
         mpQuestionText.textContent = data.question;
-        
         mpOptionsContainer.innerHTML = '';
         selectedOption = null;
         isAnswered = false;
         mpAnswerBtn.disabled = true;
         mpAnswerBtn.textContent = 'Ответить';
         questionStartTime = Date.now();
-
         const oldResult = document.querySelector('.answer-result');
         if (oldResult) oldResult.remove();
         const oldCorrect = document.querySelector('.correct-answer-display');
         if (oldCorrect) oldCorrect.remove();
-        
         data.options.forEach((option, index) => {
             const radioDiv = document.createElement('label');
             radioDiv.className = 'radio';
-            
             const input = document.createElement('input');
             input.type = 'radio';
             input.name = 'mp_answer';
             input.value = option;
             input.id = `option_${index}`;
-            
             const span = document.createElement('span');
             span.textContent = option;
-            
             input.addEventListener('change', (e) => {
                 selectedOption = e.target.value;
                 mpAnswerBtn.disabled = false;
@@ -352,7 +346,11 @@
         if (input) input.disabled = true;
 
         const optionText = radio.querySelector('span')?.textContent || radio.textContent.trim();
-        if (optionText === data.correct_answer) {
+
+        console.log(optionText)
+        console.log(data.correct_answer)
+
+        if (optionText == data.correct_answer) {
             radio.classList.add('correct');
         } else if (radio.classList.contains('selected')) {
             radio.classList.add('incorrect');

@@ -169,7 +169,6 @@ input[type="text"] {
     padding: 15px 20px !important;
     border-radius: 10px !important;
     border: 2px solid #ddd !important;
-    background-color: white !important;
     cursor: pointer !important;
     transition: all 0.3s ease !important;
     min-width: 200px !important;
