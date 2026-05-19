@@ -1,9 +1,9 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="container main-index-container">
-    <div class="columns is-centered">
-        <div class="column is-8">
-            <div class="card">
+<div class="container is-flex is-align-items-center is-justify-content-center main-index-container">
+    <div class="columns is-centered is-vcentered" style="width: 100%; max-width: 800px;">
+        <div class="column is-12">
+            <div class="card" style="border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); width: 100%;">
                 <div class="card-header">
                     <p class="card-header-title is-size-4">
                         Мультиплеер — Дуэль
@@ -14,7 +14,7 @@
                     <div id="lobbyScreen">
                         <div class="field">
                             <label class="label">Выберите тему</label>
-                            <div class="select">
+                            <div class="select is-fullwidth">
                                 <select id="mpThemeSelect">
                                     <option value="formulaToName">Формула → название</option>
                                     <option value="nameToFormula">Название → формула</option>
@@ -52,7 +52,12 @@
                         <div class="level">
                             <div class="level-left">
                                 <div class="level-item">
-                                    <h3 class="title is-5">Комната: <span id="roomIdDisplay"></span></h3>
+                                    <h3 class="title is-5">
+                                        Комната: <span id="roomIdDisplay" class="has-text-weight-bold"></span>
+                                        <button id="copyRoomLinkBtn" class="button is-small is-primary is-light ml-3">
+                                            📋 Скопировать ссылку
+                                        </button>
+                                    </h3>
                                 </div>
                             </div>
                             <div class="level-right">
@@ -147,6 +152,16 @@
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script>
     const socket = io();
+    
+    socket.on('connect', () => {
+        console.log('Успешное сокет-подключение с ID:', socket.id);
+    });
+
+    socket.on('connect_error', (error) => {
+        console.error('Ошибка сокет-подключения:', error);
+        showNotification('Ошибка связи с сервером дуэлей: ' + error.message, 'danger');
+    });
+
     let currentRoomId = null;
     let currentTheme = null;
     let isReady = false;
@@ -155,6 +170,7 @@
     let questionStartTime = 0;
     let currentUserId = null;
     let currentUserEmail = null;
+    let activePlayers = {};
 
     const lobbyScreen = document.getElementById('lobbyScreen');
     const roomScreen = document.getElementById('roomScreen');
@@ -179,15 +195,36 @@
     const mpCurrentQuestion = document.getElementById('mpCurrentQuestion');
     const mpTotalQuestions = document.getElementById('mpTotalQuestions');
     const mpResultsList = document.getElementById('mpResultsList');
+    const copyRoomLinkBtn = document.getElementById('copyRoomLinkBtn');
 
     fetch('/check_auth')
         .then(res => res.json())
         .then(data => {
             if (!data.authenticated) {
-                window.location.href = '/signin';
+                const nextUrl = encodeURIComponent(window.location.pathname + window.location.search);
+                window.location.href = `/signin?next=${nextUrl}`;
+                return;
             }
             currentUserId = data.user_id;
             currentUserEmail = data.email;
+            
+            // Если игроки уже загрузились через сокеты, перерисуем список для отображения тега "Вы"
+            if (activePlayers && Object.keys(activePlayers).length > 0) {
+                updatePlayersList(activePlayers);
+            }
+
+            // Автоподключение к комнате, если передан параметр в URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomFromUrl = urlParams.get('room');
+            if (roomFromUrl) {
+                const checkSocket = setInterval(() => {
+                    if (socket.connected) {
+                        clearInterval(checkSocket);
+                        socket.emit('join_room', { room_id: roomFromUrl });
+                        showNotification(`Подключение к комнате ${roomFromUrl}...`, 'info');
+                    }
+                }, 100);
+            }
         });
 
     createRoomBtn.addEventListener('click', () => {
@@ -244,6 +281,20 @@
         mpAnswerBtn.textContent = 'Ответ отправлен...';
     });
 
+    copyRoomLinkBtn.addEventListener('click', () => {
+        if (currentRoomId) {
+            const shareUrl = window.location.origin + window.location.pathname + '?room=' + currentRoomId;
+            navigator.clipboard.writeText(shareUrl)
+                .then(() => {
+                    showNotification('Ссылка на дуэль скопирована в буфер обмена!', 'success');
+                })
+                .catch(err => {
+                    console.error('Ошибка копирования:', err);
+                    showNotification('Не удалось скопировать ссылку автоматически.', 'warning');
+                });
+        }
+    });
+
     socket.on('room_created', (data) => {
         currentRoomId = data.room_id;
         currentTheme = data.theme;
@@ -251,6 +302,7 @@
         lobbyScreen.classList.add('hidden');
         roomScreen.classList.remove('hidden');
         updatePlayersList(data.players);
+        history.pushState(null, '', '?room=' + data.room_id);
     });
     
     socket.on('joined_room', (data) => {
@@ -259,6 +311,7 @@
         lobbyScreen.classList.add('hidden');
         roomScreen.classList.remove('hidden');
         updatePlayersList(data.players);
+        history.pushState(null, '', '?room=' + data.room_id);
     });
     
     socket.on('player_joined', (data) => {
@@ -414,7 +467,7 @@
                         <span class="tag is-medium ${medalClass} mr-3" style="font-size: 1.2rem;">
                             ${medal}
                         </span>
-                        <strong style="font-size: 1.1rem;">${playerData.email.split('@')[0]} ${isCurrentUser ? '<span class="tag is-primary ml-2">Вы</span>' : ''}</strong>
+                        <strong style="font-size: 1.1rem;">${(playerData.email || 'Игрок').split('@')[0]} ${isCurrentUser ? '<span class="tag is-primary ml-2">Вы</span>' : ''}</strong>
                     </div>
                 </div>
                 <div class="level-right">
@@ -443,6 +496,7 @@
     });
     
     function updatePlayersList(players) {
+        activePlayers = players;
         playersList.innerHTML = '';
         const playersArray = Object.entries(players);
         
@@ -458,7 +512,7 @@
             col.innerHTML = `
                 <div class="player-card ${player.ready ? 'ready' : ''}" data-player-id="${id}">
                     <div class="player-name">
-                        ${player.email.split('@')[0]} 
+                        ${(player.email || 'Игрок').split('@')[0]} 
                         ${isCurrentUser ? '<span class="tag is-primary is-small ml-1">Вы</span>' : ''}
                     </div>
                     <div class="player-score" data-player-score="${id}">${player.score || 0}</div>
@@ -527,6 +581,8 @@
         
         const helpText = readySection.querySelector('.help');
         if (helpText) helpText.textContent = 'Нужно минимум 2 игрока для старта';
+
+        history.pushState(null, '', window.location.pathname);
     }
     
     backToLobbyBtn.addEventListener('click', resetToLobby);

@@ -190,6 +190,10 @@ function handleAnswer() {
 
     if (isCorrect) {
         score++;
+    } else {
+        // Показываем подсказку
+        const theme = document.getElementById('themeSelect').value;
+        showToast(`❌ Неправильно! Правильный ответ: ${currentQuestion.answer}`, 'warning');
     }
 
     const answerButton = document.getElementById('answerButton');
@@ -200,6 +204,52 @@ function handleAnswer() {
         showQuestion();
     }, 1000);
 }
+
+// Функция для всплывающих уведомлений (тост)
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `notification is-${type}`;
+    toast.style.position = 'fixed';
+    toast.style.bottom = '20px';
+    toast.style.right = '20px';
+    toast.style.zIndex = '1000';
+    toast.style.maxWidth = '350px';
+    toast.style.padding = '12px 20px';
+    toast.style.borderRadius = '8px';
+    toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+    toast.style.animation = 'slideInRight 0.3s ease';
+    toast.innerHTML = `
+        <button class="delete" style="float: right;"></button>
+        <strong>${type === 'warning' ? '💡' : 'ℹ️'}</strong> ${message}
+    `;
+    document.body.appendChild(toast);
+
+    const deleteBtn = toast.querySelector('.delete');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', () => toast.remove());
+    }
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+`;
+document.head.appendChild(style);
 
 function endGame() {
     if (timer) {
@@ -242,13 +292,6 @@ function restartGame() {
     if (welcomeScreen) welcomeScreen.classList.remove('hidden');
 }
 
-function shuffleArray(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-    }
-    return array;
-}
 
 async function saveGameResult(score, mode, theme) {
     try {

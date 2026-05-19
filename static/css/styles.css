@@ -29,8 +29,25 @@ span {
 }
 
 .navbar {
-    background-color: rgba(0, 0, 0, 0) !important;
+    background-color: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    padding: 5px 20px;
+}
 
+.navbar-item {
+    color: #1d2a38 !important;
+    font-weight: 600 !important;
+    font-size: 15px;
+    letter-spacing: 0.2px;
+}
+
+.navbar-item:hover {
+    color: #00d1b2 !important;
+    background-color: rgba(0, 209, 178, 0.08) !important;
+    border-radius: 20px;
 }
 
 
@@ -82,9 +99,7 @@ th {
     flex-wrap: wrap;
 }
 
-.tabs {
-    border: 2px solid black;
-}
+
 
 .custom-select-rating {
     flex: 1;
@@ -287,16 +302,34 @@ input[type="text"] {
     padding: 20px;
 }
 
-.tabs {
+.mode-tabs {
     display: flex;
-    gap: 10px;
+    background-color: #f1f3f5;
+    padding: 4px;
+    border-radius: 20px;
+    gap: 4px;
     margin-bottom: 20px;
-    border: 2px solid #00d1b2;
+    border: none !important;
 }
 
-.tab-button.active {
+.mode-tabs .tab-button {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 8px 12px;
+    border-radius: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #495057;
+    font-size: 13px;
+    outline: none;
+}
+
+.mode-tabs .tab-button.active {
     background-color: #00d1b2;
-    color: white;
+    color: white !important;
+    box-shadow: 0 4px 10px rgba(0, 209, 178, 0.2);
 }
 
 .correct {
@@ -314,7 +347,20 @@ input[type="text"] {
 }
 
 .select select {
-background-color: #00d1b2;
+    background-color: #00d1b2 !important;
+    color: white !important;
+    font-weight: bold !important;
+    border-color: #00b89c !important;
+    border-radius: 8px !important;
+    height: auto !important;
+    padding: 10px 35px 10px 15px !important;
+    font-size: 15px !important;
+}
+
+.select:not(.is-multiple):not(.is-loading)::after {
+    border-color: white !important;
+    right: 1.125em !important;
+    z-index: 4 !important;
 }
 
 @media (max-width: 768px) {
@@ -330,14 +376,7 @@ background-color: #00d1b2;
 
 
 
-.custom-tooltip .tooltip-text {
-  visibility: hidden;
- color: red
-}
 
-.custom-tooltip:hover .tooltip-text {
-  visibility: visible;
-}
 
 body {
     min-height: 100vh;

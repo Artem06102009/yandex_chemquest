@@ -1,3 +1,9 @@
+try:
+    import eventlet
+    eventlet.monkey_patch()
+except ImportError:
+    pass
+
 from flask import Flask, render_template, request, send_file, url_for, redirect, flash, session, jsonify
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, BooleanField, SubmitField
@@ -819,18 +825,24 @@ def end_game(room_id):
     room = rooms[room_id]
     sorted_players = sorted(room['players'].items(), key=lambda x: x[1]['score'], reverse=True)
     db_sess = db_session.create_session()
-    for player_id, player_data in sorted_players:
-        result = GameResult(
-            user_id=int(player_id),
-            score=player_data['score'],
-            mode='multiplayer',
-            theme=room['theme']
-        )
-        db_sess.add(result)
-        user = db_sess.query(User).get(int(player_id))
-        if user:
-            user.games_played += 1
-    db_sess.commit()
+    try:
+        for player_id, player_data in sorted_players:
+            result = GameResult(
+                user_id=int(player_id),
+                score=player_data['score'],
+                mode='multiplayer',
+                theme=room['theme']
+            )
+            db_sess.add(result)
+            user = db_sess.query(User).get(int(player_id))
+            if user:
+                user.games_played += 1
+        db_sess.commit()
+    except Exception as e:
+        db_sess.rollback()
+        print(f"Ошибка сохранения результатов мультиплеера: {e}")
+    finally:
+        db_sess.close()
 
     emit('game_end', {'results': sorted_players, 'players': room['players']}, room=room_id)
     del rooms[room_id]
@@ -862,10 +874,10 @@ def handle_create_room(data):
         }
 
     join_room(room_id)
-    rooms[room_id]['players'][user_id] = {'email': user_email, 'score': 0, 'ready': False}
+    rooms[room_id]['players'][str(user_id)] = {'email': user_email, 'score': 0, 'ready': False}
 
     emit('room_created', {'room_id': room_id, 'players': rooms[room_id]['players'], 'theme': theme}, room=room_id)
-    emit('joined_room', {'room_id': room_id, 'players': rooms[room_id]['players']}, to=request.sid)
+    emit('joined_room', {'room_id': room_id, 'players': rooms[room_id]['players']})
 
 
 @socketio.on('join_room')
@@ -887,10 +899,10 @@ def handle_join_room(data):
         return
 
     join_room(room_id)
-    rooms[room_id]['players'][user_id] = {'email': user_email, 'score': 0, 'ready': False}
+    rooms[room_id]['players'][str(user_id)] = {'email': user_email, 'score': 0, 'ready': False}
 
     emit('player_joined', {'players': rooms[room_id]['players']}, room=room_id)
-    emit('joined_room', {'room_id': room_id, 'players': rooms[room_id]['players']}, to=request.sid)
+    emit('joined_room', {'room_id': room_id, 'players': rooms[room_id]['players']})
 
 
 @socketio.on('player_ready')
@@ -901,8 +913,8 @@ def handle_player_ready(data):
     if room_id not in rooms:
         return
 
-    if user_id in rooms[room_id]['players']:
-        rooms[room_id]['players'][user_id]['ready'] = True
+    if str(user_id) in rooms[room_id]['players']:
+        rooms[room_id]['players'][str(user_id)]['ready'] = True
 
     all_ready = all(p['ready'] for p in rooms[room_id]['players'].values())
     players_count = len(rooms[room_id]['players'])
@@ -925,7 +937,7 @@ def handle_submit_answer(data):
         return
 
     room = rooms[room_id]
-    if user_id in room['answers']:
+    if str(user_id) in room['answers']:
         return
 
     q_index = room['current_question']
@@ -935,20 +947,20 @@ def handle_submit_answer(data):
     if is_correct:
         points = max(10, 100 - int(time_taken / 10))
         if points > 100: points = 100
-        room['players'][user_id]['score'] += points
+        room['players'][str(user_id)]['score'] += points
 
-    room['answers'][user_id] = {'answer': answer, 'correct': is_correct, 'points': points}
+    room['answers'][str(user_id)] = {'answer': answer, 'correct': is_correct, 'points': points}
     correct_answer_text = room['questions'][q_index]['answer']
 
     emit('answer_result', {
         'correct': is_correct,
         'points': points,
-        'new_score': room['players'][user_id]['score'],
+        'new_score': room['players'][str(user_id)]['score'],
         'correct_answer': correct_answer_text
-    }, to=request.sid)
+    })
 
     emit('scores_update', {
-        'players': {pid: p['score'] for pid, p in room['players'].items()}
+        'players': {str(pid): p['score'] for pid, p in room['players'].items()}
     }, room=room_id)
 
     if len(room['answers']) >= len(room['players']):
@@ -961,11 +973,12 @@ def handle_submit_answer(data):
         else:
             send_question(room_id)
 
+
 @socketio.on('get_players')
 def handle_get_players(data):
     room_id = data.get('room_id')
     if room_id in rooms:
-        emit('player_list_update', {'players': rooms[room_id]['players']}, to=request.sid)
+        emit('player_list_update', {'players': rooms[room_id]['players']})
 
 
 @socketio.on('leave_room')
@@ -973,8 +986,8 @@ def handle_leave_room(data):
     user_id = session.get('user_id')
     room_id = data.get('room_id')
     if room_id in rooms:
-        if user_id in rooms[room_id]['players']:
-            del rooms[room_id]['players'][user_id]
+        if str(user_id) in rooms[room_id]['players']:
+            del rooms[room_id]['players'][str(user_id)]
         emit('player_left', {'players': rooms[room_id]['players']}, room=room_id)
         leave_room(room_id)
         if len(rooms[room_id]['players']) == 0:
@@ -983,14 +996,10 @@ def handle_leave_room(data):
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    user_id = session.get('user_id')
-    for room_id, room in list(rooms.items()):
-        if user_id in room['players']:
-            del room['players'][user_id]
-            emit('player_left', {'players': room['players']}, room=room_id)
-            if len(room['players']) == 0:
-                del rooms[room_id]
-            break
+    # Мы не удаляем игрока и комнату мгновенно при дисконнекте сокета,
+    # чтобы временные разрывы связи и перезагрузки страниц не ломали сессию.
+    # Комнаты очищаются при явном выходе (событие 'leave_room').
+    pass
 
 
 @app.route("/")
@@ -1005,17 +1014,24 @@ def sign_up():
     form = RegistrationForm()
     if form.validate_on_submit():
         db_sess = db_session.create_session()
-        existing_user = db_sess.query(User).filter(User.email == form.email.data).first()
-        if existing_user:
-            flash('Пользователь с таким email уже существует', 'danger')
-            return render_template("signup.html", form=form)
+        try:
+            existing_user = db_sess.query(User).filter(User.email == form.email.data).first()
+            if existing_user:
+                flash('Пользователь с таким email уже существует', 'danger')
+                return render_template("signup.html", form=form)
 
-        user = User(email=form.email.data)
-        user.set_password(form.password.data)
-        db_sess.add(user)
-        db_sess.commit()
-        flash('Регистрация успешна! Теперь вы можете войти.', 'success')
-        return redirect(url_for('sign_in'))
+            user = User(email=form.email.data)
+            user.set_password(form.password.data)
+            db_sess.add(user)
+            db_sess.commit()
+            flash('Регистрация успешна! Теперь вы можете войти.', 'success')
+            return redirect(url_for('sign_in'))
+        except Exception as e:
+            db_sess.rollback()
+            flash('Произошла ошибка при регистрации.', 'danger')
+            print(f"Ошибка регистрации: {e}")
+        finally:
+            db_sess.close()
     return render_template("signup.html", form=form)
 
 
@@ -1026,14 +1042,23 @@ def sign_in():
     form = LoginForm()
     if form.validate_on_submit():
         db_sess = db_session.create_session()
-        user = db_sess.query(User).filter(User.email == form.email.data).first()
-        if user and user.check_password(form.password.data):
-            session['user_id'] = user.id
-            session['user_email'] = user.email
-            flash(f'Добро пожаловать, {user.email}!', 'success')
-            return redirect(url_for('game'))
-        else:
-            flash('Неверный email или пароль', 'danger')
+        try:
+            user = db_sess.query(User).filter(User.email == form.email.data).first()
+            if user and user.check_password(form.password.data):
+                session['user_id'] = user.id
+                session['user_email'] = user.email
+                flash(f'Добро пожаловать, {user.email}!', 'success')
+                
+                next_page = request.args.get('next')
+                if next_page and next_page.startswith('/'):
+                    return redirect(next_page)
+                return redirect(url_for('game'))
+            else:
+                flash('Неверный email или пароль', 'danger')
+        except Exception as e:
+            print(f"Ошибка авторизации: {e}")
+        finally:
+            db_sess.close()
     return render_template("signin.html", form=form)
 
 
@@ -1053,7 +1078,10 @@ def game():
 def multiplayer():
     if 'user_id' not in session:
         flash('Войдите в систему, чтобы играть в мультиплеер', 'warning')
-        return redirect(url_for('sign_in'))
+        room = request.args.get('room')
+        if room:
+            return redirect(url_for('sign_in', next=f"/multiplayer?room={room}"))
+        return redirect(url_for('sign_in', next="/multiplayer"))
     return render_template("multiplayer.html")
 
 
@@ -1064,22 +1092,27 @@ def save_result():
 
     data = request.get_json()
     db_sess = db_session.create_session()
+    try:
+        result = GameResult(
+            user_id=session['user_id'],
+            score=data['score'],
+            mode=data['mode'],
+            theme=data['theme']
+        )
 
-    result = GameResult(
-        user_id=session['user_id'],
-        score=data['score'],
-        mode=data['mode'],
-        theme=data['theme']
-    )
+        user = db_sess.query(User).get(session['user_id'])
+        if user:
+            user.games_played += 1
 
-    user = db_sess.query(User).get(session['user_id'])
-    if user:
-        user.games_played += 1
-
-    db_sess.add(result)
-    db_sess.commit()
-
-    return jsonify({'success': True})
+        db_sess.add(result)
+        db_sess.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db_sess.rollback()
+        print(f"Ошибка сохранения результатов игры: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+    finally:
+        db_sess.close()
 
 
 @app.route("/check_auth")
@@ -1095,26 +1128,32 @@ def rating():
     theme = request.args.get('theme', 'formulaToName')
 
     db_sess = db_session.create_session()
-    results = db_sess.query(
-        User,
-        db_session.sa.func.max(GameResult.score).label('best_score')
-    ).join(
-        GameResult, User.id == GameResult.user_id
-    ).filter(
-        GameResult.mode == mode,
-        GameResult.theme == theme
-    ).group_by(
-        User.id
-    ).order_by(
-        db_session.sa.func.max(GameResult.score).desc()
-    ).limit(20).all()
+    try:
+        results = db_sess.query(
+            User,
+            db_session.sa.func.max(GameResult.score).label('best_score')
+        ).join(
+            GameResult, User.id == GameResult.user_id
+        ).filter(
+            GameResult.mode == mode,
+            GameResult.theme == theme
+        ).group_by(
+            User.id
+        ).order_by(
+            db_session.sa.func.max(GameResult.score).desc()
+        ).limit(20).all()
 
-    return render_template(
-        "rating.html",
-        results=results,
-        current_mode=mode,
-        current_theme=theme
-    )
+        return render_template(
+            "rating.html",
+            results=results,
+            current_mode=mode,
+            current_theme=theme
+        )
+    except Exception as e:
+        print(f"Ошибка получения рейтинга: {e}")
+        return render_template("rating.html", results=[], current_mode=mode, current_theme=theme)
+    finally:
+        db_sess.close()
 
 
 @app.route("/table")
@@ -1137,6 +1176,48 @@ def get_elements():
     return {"error": "File not found"}, 404
 
 
+# ========== ЛИЧНЫЙ КАБИНЕТ ==========
+
+@app.route("/profile")
+def profile():
+    if 'user_id' not in session:
+        flash('Войдите в систему', 'warning')
+        return redirect(url_for('sign_in'))
+
+    db_sess = db_session.create_session()
+    try:
+        user = db_sess.query(User).get(session['user_id'])
+        results = db_sess.query(GameResult).filter(GameResult.user_id == session['user_id']).order_by(GameResult.played_at.desc()).all()
+        
+        total_games = len(results)
+        avg_score = sum(r.score for r in results) / total_games if total_games > 0 else 0
+        best_score = max([r.score for r in results]) if results else 0
+
+        return render_template("profile.html", user=user, results=results,
+                               total_games=total_games, avg_score=avg_score, best_score=best_score)
+    except Exception as e:
+        print(f"Ошибка получения профиля: {e}")
+        flash('Произошла ошибка при загрузке профиля.', 'danger')
+        return redirect(url_for('index'))
+    finally:
+        db_sess.close()
+
+
+@app.route("/api/hint/<theme>/<question_text>")
+def get_hint(theme, question_text):
+    hints = {
+        "formulaToName": "Подсказка: вспомните название этого соединения по его формуле",
+        "nameToFormula": "Подсказка: вспомните формулу этого вещества",
+        "valency": "Подсказка: валентность — это количество связей, которое образует атом",
+        "oxidation": "Подсказка: степень окисления — это условный заряд атома",
+        "bond": "Подсказка: определите тип реакции по изменению состава веществ",
+        "atomicmass": "Подсказка: атомная масса указана в таблице Менделеева",
+        "OVR": "Подсказка: определите, кто отдаёт электроны, а кто принимает"
+    }
+    return jsonify({'hint': hints.get(theme, 'Подумайте ещё раз!')})
+
+
+
 if __name__ == '__main__':
     db_session.global_init("db/chemquest.db")
-    socketio.run(app, debug=True, host='0.0.0.0', port=5089, allow_unsafe_werkzeug=True)
+    socketio.run(app, debug=True, allow_unsafe_werkzeug=True)
