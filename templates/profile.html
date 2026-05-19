@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container main-index-container">
+    <div class="columns">
+        <div class="column is-4">
+            <div class="card">
+                <div class="card-content has-text-centered">
+                    <div class="profile-icon is-size-1 mb-3" style="width: 80px; height: 80px; line-height: 80px; margin: 0 auto; background-color: #00d1b2; border-radius: 50%; color: white;">
+                        {{ user.email[0].upper() }}
+                    </div>
+                    <h2 class="title is-4">{{ user.email.split('@')[0] }}</h2>
+                    <p class="subtitle is-6">{{ user.email }}</p>
+                    <hr>
+                    <div class="level">
+                        <div class="level-item has-text-centered">
+                            <div>
+                                <p class="heading">Всего игр</p>
+                                <p class="title is-3">{{ total_games }}</p>
+                            </div>
+                        </div>
+                        <div class="level-item has-text-centered">
+                            <div>
+                                <p class="heading">Средний счёт</p>
+                                <p class="title is-3">{{ "%.1f"|format(avg_score) }}</p>
+                            </div>
+                        </div>
+                        <div class="level-item has-text-centered">
+                            <div>
+                                <p class="heading">Лучший счёт</p>
+                                <p class="title is-3">{{ best_score }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="column is-8">
+            <div class="card">
+                <div class="card-header">
+                    <p class="card-header-title">📜 История игр</p>
+                </div>
+                <div class="card-content">
+                    <div class="table-container">
+                        <table class="table is-fullwidth is-striped">
+                            <thead>
+                                <tr>
+                                    <th>Дата</th>
+                                    <th>Тема</th>
+                                    <th>Режим</th>
+                                    <th>Счёт</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for result in results %}
+                                <tr>
+                                    <td>{{ result.played_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                                    <td>{{ result.theme }}</td>
+                                    <td>
+                                        {% if result.mode == 'time' %}
+                                            <span class="tag is-info">⏱️ На время</span>
+                                        {% else %}
+                                            <span class="tag is-success">📊 На количество</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><strong>{{ result.score }}</strong></td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="has-text-centered">😕 Нет сыгранных игр</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
